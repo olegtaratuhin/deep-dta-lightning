@@ -1,4 +1,6 @@
-from typing import List, Optional, Tuple
+from __future__ import annotations
+
+from typing import Any
 
 import hydra
 import lightning.pytorch as pl
@@ -31,7 +33,7 @@ log = utils.get_pylogger(__name__)
 
 
 @utils.task_wrapper
-def train(cfg: DictConfig) -> Tuple[dict, dict]:
+def train(cfg: DictConfig) -> tuple[dict[str, Any], dict[str, Any]]:
     """Trains the model. Can additionally evaluate on a testset, using best weights obtained during
     training.
 
@@ -42,7 +44,7 @@ def train(cfg: DictConfig) -> Tuple[dict, dict]:
         cfg (DictConfig): Configuration composed by Hydra.
 
     Returns:
-        Tuple[dict, dict]: Dict with metrics and dict with all instantiated objects.
+        tuple[dict, dict]: Dict with metrics and dict with all instantiated objects.
     """
 
     # set seed for random number generators in pytorch, numpy and python.random
@@ -56,10 +58,10 @@ def train(cfg: DictConfig) -> Tuple[dict, dict]:
     model: LightningModule = hydra.utils.instantiate(cfg.model)
 
     log.info("Instantiating callbacks...")
-    callbacks: List[Callback] = utils.instantiate_callbacks(cfg.get("callbacks"))
+    callbacks: list[Callback] = utils.instantiate_callbacks(cfg.get("callbacks"))
 
     log.info("Instantiating loggers...")
-    logger: List[Logger] = utils.instantiate_loggers(cfg.get("logger"))
+    logger: list[Logger] = utils.instantiate_loggers(cfg.get("logger"))
 
     log.info(f"Instantiating trainer <{cfg.trainer._target_}>")
     trainer: Trainer = hydra.utils.instantiate(cfg.trainer, callbacks=callbacks, logger=logger)
@@ -105,7 +107,7 @@ def train(cfg: DictConfig) -> Tuple[dict, dict]:
 
 
 @hydra.main(version_base="1.3", config_path="../configs", config_name="train.yaml")
-def main(cfg: DictConfig) -> Optional[float]:
+def main(cfg: DictConfig) -> float | None:
 
     # train the model
     metric_dict, _ = train(cfg)

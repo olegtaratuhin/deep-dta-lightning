@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import warnings
 from importlib.util import find_spec
-from typing import Any, Callable, List
+from typing import Any, Callable
 
 import hydra
 from omegaconf import DictConfig
@@ -89,9 +91,9 @@ def extras(cfg: DictConfig) -> None:
         rich_utils.print_config_tree(cfg, resolve=True, save_to_file=True)
 
 
-def instantiate_callbacks(callbacks_cfg: DictConfig) -> List[Callback]:
+def instantiate_callbacks(callbacks_cfg: DictConfig) -> list[Callback]:
     """Instantiates callbacks from config."""
-    callbacks: List[Callback] = []
+    callbacks: list[Callback] = []
 
     if not callbacks_cfg:
         log.warning("No callback configs found! Skipping..")
@@ -108,9 +110,9 @@ def instantiate_callbacks(callbacks_cfg: DictConfig) -> List[Callback]:
     return callbacks
 
 
-def instantiate_loggers(logger_cfg: DictConfig) -> List[Logger]:
+def instantiate_loggers(logger_cfg: DictConfig) -> list[Logger]:
     """Instantiates loggers from config."""
-    logger: List[Logger] = []
+    logger: list[Logger] = []
 
     if not logger_cfg:
         log.warning("No logger configs found! Skipping...")
@@ -194,7 +196,7 @@ def get_metric_value(metric_dict: dict, metric_name: str) -> float:
 
     if not metric_name:
         log.info("Metric name is None! Skipping metric value retrieval...")
-        return None
+        return float("-inf")
 
     if metric_name not in metric_dict:
         raise Exception(

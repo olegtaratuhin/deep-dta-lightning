@@ -1,4 +1,6 @@
-from typing import List, Tuple
+from __future__ import annotations
+
+from typing import Any
 
 import hydra
 import pyrootutils
@@ -30,7 +32,7 @@ log = utils.get_pylogger(__name__)
 
 
 @utils.task_wrapper
-def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
+def evaluate(cfg: DictConfig) -> tuple[dict[str, Any], dict[str, Any]]:
     """Evaluates given checkpoint on a datamodule testset.
 
     This method is wrapped in optional @task_wrapper decorator which applies extra utilities
@@ -40,7 +42,7 @@ def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
         cfg (DictConfig): Configuration composed by Hydra.
 
     Returns:
-        Tuple[dict, dict]: Dict with metrics and dict with all instantiated objects.
+        tuple[dict, dict]: Dict with metrics and dict with all instantiated objects.
     """
 
     assert cfg.ckpt_path
@@ -52,7 +54,7 @@ def evaluate(cfg: DictConfig) -> Tuple[dict, dict]:
     model: LightningModule = hydra.utils.instantiate(cfg.model)
 
     log.info("Instantiating loggers...")
-    logger: List[Logger] = utils.instantiate_loggers(cfg.get("logger"))
+    logger: list[Logger] = utils.instantiate_loggers(cfg.get("logger"))
 
     log.info(f"Instantiating trainer <{cfg.trainer._target_}>")
     trainer: Trainer = hydra.utils.instantiate(cfg.trainer, logger=logger)
