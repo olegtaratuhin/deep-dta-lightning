@@ -16,19 +16,7 @@ class Encoder(nn.Module):
     ):
         super().__init__()
 
-        # XTinput = Input(shape=(FLAGS.max_seq_len, FLAGS.charseqset_size))
         self._embedding = nn.Embedding(max_seq_len, embedding_size)
-
-        # ================================================================================
-        # @ Convolution for smiles
-
-        # encode_smiles = Conv1D(filters=NUM_FILTERS, kernel_size=FILTER_LENGTH1, activation='relu', padding='valid',
-        #                        strides=1)(encode_smiles)
-        # encode_smiles = Conv1D(filters=NUM_FILTERS * 2, kernel_size=FILTER_LENGTH1, activation='relu', padding='valid',
-        #                        strides=1)(encode_smiles)
-        # encode_smiles = Conv1D(filters=NUM_FILTERS * 3, kernel_size=FILTER_LENGTH1, activation='relu', padding='valid',
-        #                        strides=1)(encode_smiles)
-        # encode_smiles = GlobalMaxPooling1D()(encode_smiles)
 
         layers = []
         for i, size in enumerate(kernel_size, start=1):
