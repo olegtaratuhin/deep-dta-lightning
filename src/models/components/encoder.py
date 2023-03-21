@@ -9,14 +9,14 @@ __all__ = ["Encoder"]
 class Encoder(nn.Module):
     def __init__(
         self,
-        max_seq_len: int,
+        vocab_size: int = 100,
         filters: int = 32,
         kernel_size: tuple[int, ...] = (4,),
         embedding_size: int = 128,
     ):
         super().__init__()
 
-        self._embedding = nn.Embedding(max_seq_len, embedding_size)
+        self._embedding = nn.Embedding(vocab_size, embedding_size)
 
         layers = []
         for i, size in enumerate(kernel_size, start=1):

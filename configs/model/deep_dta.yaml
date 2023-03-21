@@ -17,13 +17,13 @@ model:
   _target_: src.models.components.dta.DeepDTA
   protein_encoder:
     _target_: src.models.components.encoder.Encoder
-    max_seq_len: 1000
+    vocab_size: 32
     filters: 32
     kernel_size: [4, 6, 12]
-    embedding_size: 128
+    embedding_size: 32
   ligand_encoder:
     _target_: src.models.components.encoder.Encoder
-    max_seq_len: 100
+    vocab_size: 128
     filters: 32
     kernel_size: [4, 6, 8]
     embedding_size: 128

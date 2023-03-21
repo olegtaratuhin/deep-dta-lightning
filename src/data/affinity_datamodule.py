@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pathlib
-from typing import Any
+from typing import Any, Protocol
 
 import torch
 from lightning.pytorch import LightningDataModule
@@ -12,6 +12,11 @@ from src.data.components.affinity_dataset import AffinityDataset
 __all__ = [
     "AffinityDataModule",
 ]
+
+
+class DatasetFactory(Protocol):
+    def __call__(self, path: pathlib.Path) -> Dataset:
+        raise NotImplementedError()
 
 
 class AffinityDataModule(LightningDataModule):
@@ -45,8 +50,9 @@ class AffinityDataModule(LightningDataModule):
     def __init__(
         self,
         path: str = "data/",
+        dataset: DatasetFactory = AffinityDataset,
         train_val_test_split: tuple[float, float, float] = (0.8, 0.1, 0.1),
-        batch_size: int = 64,
+        batch_size: int = 256,
         num_workers: int = 0,
         pin_memory: bool = False,
     ):
@@ -75,7 +81,7 @@ class AffinityDataModule(LightningDataModule):
         """
         # load and split datasets only if not loaded already
         if not self.data_train and not self.data_val and not self.data_test:
-            dataset = AffinityDataset(pathlib.Path(self.hparams.path))
+            dataset = self.hparams.dataset(path=pathlib.Path(self.hparams.path))
             self.data_train, self.data_val, self.data_test = random_split(
                 dataset=dataset,
                 lengths=self.hparams.train_val_test_split,
