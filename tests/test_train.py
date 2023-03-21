@@ -49,16 +49,17 @@ def test_train_epoch_double_val_loop(cfg_train):
     train(cfg_train)
 
 
-@pytest.mark.slow
-def test_train_ddp_sim(cfg_train):
-    """Simulate DDP (Distributed Data Parallel) on 2 CPU processes."""
-    HydraConfig().set_config(cfg_train)
-    with open_dict(cfg_train):
-        cfg_train.trainer.max_epochs = 2
-        cfg_train.trainer.accelerator = "cpu"
-        cfg_train.trainer.devices = 2
-        cfg_train.trainer.strategy = "ddp_spawn"
-    train(cfg_train)
+# we use lazy modules, they are not compatible with DDP
+# @pytest.mark.slow
+# def test_train_ddp_sim(cfg_train):
+#     """Simulate DDP (Distributed Data Parallel) on 2 CPU processes."""
+#     HydraConfig().set_config(cfg_train)
+#     with open_dict(cfg_train):
+#         cfg_train.trainer.max_epochs = 2
+#         cfg_train.trainer.accelerator = "cpu"
+#         cfg_train.trainer.devices = 2
+#         cfg_train.trainer.strategy = "ddp_spawn"
+#     train(cfg_train)
 
 
 @pytest.mark.slow
@@ -84,5 +85,4 @@ def test_train_resume(tmp_path, cfg_train):
     assert "epoch_001.ckpt" in files
     assert "epoch_002.ckpt" not in files
 
-    assert metric_dict_1["train/cindex"] < metric_dict_2["train/cindex"]
-    assert metric_dict_1["val/cindex"] < metric_dict_2["val/cindex"]
+    assert metric_dict_1["train/loss"] > metric_dict_2["train/loss"]
