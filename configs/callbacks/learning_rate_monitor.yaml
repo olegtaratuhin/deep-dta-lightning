@@ -1,0 +1,6 @@
+# https://lightning.ai/docs/pytorch/latest/api/lightning.pytorch.callbacks.LearningRateMonitor.html
+
+# Automatically monitor and logs learning rate for learning rate schedulers during training.
+learning_rate_monitor:
+  _target_: lightning.pytorch.callbacks.LearningRateMonitor
+  logging_interval: epoch
