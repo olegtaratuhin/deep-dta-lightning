@@ -3,12 +3,12 @@
 from setuptools import find_packages, setup
 
 setup(
-    name="src",
+    name="LightningDeepDTA",
     version="0.0.1",
-    description="Describe Your Cool Project",
-    author="",
+    description="DeepDTA on PyTorchLightning with Hydra and cool stuff",
+    author="Oleg Taratukhin",
     author_email="",
-    url="https://github.com/user/project",
+    url="https://github.com/olegtaratuhin/deep-dta-lightning",
     install_requires=["pytorch-lightning", "hydra-core"],
     packages=find_packages(),
     # use this to customize global commands available in the terminal after installing the package
