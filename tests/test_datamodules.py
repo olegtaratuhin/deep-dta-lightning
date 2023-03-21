@@ -5,8 +5,8 @@ from src.data.affinity_datamodule import AffinityDataModule
 
 
 @pytest.mark.parametrize("batch_size", [32, 128])
-def test_affinity_datamodule(batch_size):
-    data_dir = "data/"
+def test_davis_affinity_datamodule(batch_size):
+    data_dir = "data/davis"
 
     dm = AffinityDataModule(path=data_dir, batch_size=batch_size)
     dm.prepare_data()

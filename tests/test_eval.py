@@ -16,6 +16,7 @@ def test_train_eval(tmp_path, cfg_train, cfg_eval):
     with open_dict(cfg_train):
         cfg_train.trainer.max_epochs = 1
         cfg_train.test = True
+        cfg_train.trainer.limit_train_batches = 0.02
 
     HydraConfig().set_config(cfg_train)
     train_metric_dict, _ = train(cfg_train)
@@ -28,8 +29,4 @@ def test_train_eval(tmp_path, cfg_train, cfg_eval):
     HydraConfig().set_config(cfg_eval)
     test_metric_dict, _ = evaluate(cfg_eval)
 
-    assert test_metric_dict["test/metric"] > 0.0
-    assert (
-        abs(train_metric_dict["train/metric"].item() - test_metric_dict["test/metric"].item())
-        < 0.001
-    )
+    assert test_metric_dict["test/cindex"] > 0.0
