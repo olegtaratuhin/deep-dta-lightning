@@ -70,6 +70,7 @@ Follow the existing ones as examples. They use the following format:
 3. `affinity.npy` - numpy float matrix with drug-protein affinity. The indices should be as in those files above.
 
 Alternatively, you might define a new datamodule that would output training samples in the same format.
+Orientation of affinity matrix is (ligands x proteins).
 
 <details>
 <summary><b>Project structure</b></summary>
