@@ -80,6 +80,7 @@ def test_train_resume(tmp_path, cfg_train):
         cfg_train.trainer.max_epochs = 2
 
     metric_dict_2, _ = train(cfg_train)
+    os.sync()
 
     files = os.listdir(tmp_path / "checkpoints")
     assert "epoch_001.ckpt" in files
