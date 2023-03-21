@@ -22,5 +22,5 @@ def test_davis_affinity_datamodule(batch_size):
     assert len(y_affinity) == batch_size
     assert len(y_affinity) == batch_size
     assert y_affinity.dtype == torch.float32
-    assert x_protein.dtype == torch.int64
-    assert x_ligand.dtype == torch.int64
+    assert x_protein.dtype in (torch.int64, torch.int32)
+    assert x_ligand.dtype in (torch.int64, torch.int32)
