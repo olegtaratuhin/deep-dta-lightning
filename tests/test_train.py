@@ -84,5 +84,5 @@ def test_train_resume(tmp_path, cfg_train):
     assert "epoch_001.ckpt" in files
     assert "epoch_002.ckpt" not in files
 
-    assert metric_dict_1["train/acc"] < metric_dict_2["train/acc"]
-    assert metric_dict_1["val/acc"] < metric_dict_2["val/acc"]
+    assert metric_dict_1["train/cindex"] < metric_dict_2["train/cindex"]
+    assert metric_dict_1["val/cindex"] < metric_dict_2["val/cindex"]

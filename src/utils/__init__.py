@@ -7,6 +7,7 @@ from src.utils.utils import (
     instantiate_callbacks,
     instantiate_loggers,
     log_hyperparameters,
+    log_model_size,
     save_file,
     task_wrapper,
 )

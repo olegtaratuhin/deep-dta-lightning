@@ -1,11 +1,11 @@
 from typing import List, Optional, Tuple
 
 import hydra
+import lightning.pytorch as pl
 import pyrootutils
-import pytorch_lightning as pl
+from lightning.pytorch import Callback, LightningDataModule, LightningModule, Trainer
+from lightning.pytorch.loggers import Logger
 from omegaconf import DictConfig
-from pytorch_lightning import Callback, LightningDataModule, LightningModule, Trainer
-from pytorch_lightning.loggers import Logger
 
 pyrootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 # ------------------------------------------------------------------------------------ #
@@ -74,12 +74,16 @@ def train(cfg: DictConfig) -> Tuple[dict, dict]:
     }
 
     if logger:
-        log.info("Logging hyperparameters!")
+        log.info("Logging model size!")
         utils.log_hyperparameters(object_dict)
 
     if cfg.get("train"):
         log.info("Starting training!")
         trainer.fit(model=model, datamodule=datamodule, ckpt_path=cfg.get("ckpt_path"))
+
+    if logger:
+        log.info("Logging model size!")
+        utils.log_model_size(object_dict)
 
     train_metrics = trainer.callback_metrics
 
@@ -108,7 +112,8 @@ def main(cfg: DictConfig) -> Optional[float]:
 
     # safely retrieve metric value for hydra-based hyperparameter optimization
     metric_value = utils.get_metric_value(
-        metric_dict=metric_dict, metric_name=cfg.get("optimized_metric")
+        metric_dict=metric_dict,
+        metric_name=cfg.get("optimized_metric"),
     )
 
     # return optimized metric

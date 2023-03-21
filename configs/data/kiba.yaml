@@ -1,0 +1,5 @@
+_target_: src.data.affinity_datamodule.AffinityDataModule
+path: ${paths.data_dir}kiba
+train_val_test_split: [0.8, 0.1, 0.1]
+batch_size: 256
+num_workers: 8

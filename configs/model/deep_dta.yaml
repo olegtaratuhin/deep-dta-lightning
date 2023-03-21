@@ -1,0 +1,37 @@
+_target_: src.models.dta_module.DeepDTAModule
+
+optimizer:
+  _target_: torch.optim.Adam
+  _partial_: true
+  lr: 0.001
+  weight_decay: 0.0
+
+scheduler:
+  _target_: torch.optim.lr_scheduler.ReduceLROnPlateau
+  _partial_: true
+  mode: min
+  factor: 0.1
+  patience: 10
+
+model:
+  _target_: src.models.components.dta.DeepDTA
+  protein_encoder:
+    _target_: src.models.components.encoder.Encoder
+    max_seq_len: 1000
+    filters: 32
+    kernel_size: [4, 6, 12]
+    embedding_size: 128
+  ligand_encoder:
+    _target_: src.models.components.encoder.Encoder
+    max_seq_len: 100
+    filters: 32
+    kernel_size: [4, 6, 8]
+    embedding_size: 128
+  dense:
+    _target_: src.models.components.dense.LazyDenseNet
+    inner_sizes: [1024, 1024, 512]
+    output_size: 1
+    dropout: 0.1
+    output_init:
+      _target_: torch.nn.init.xavier_normal_
+      _partial_: true
