@@ -49,6 +49,7 @@ class DeepDTAModule(LightningModule):
         model: dta.DeepDTA,
         optimizer: OptimzerFactory,
         scheduler: SchedulerFactory | None = None,
+        lr: float = 1e-3,
     ):
         super().__init__()
 
@@ -58,7 +59,7 @@ class DeepDTAModule(LightningModule):
         self.save_hyperparameters(logger=False, ignore=["model"])
 
         self.model = model
-        # self.optimizer = optimizer
+        self.lr = lr
 
         # loss function
         self.criterion = nn.MSELoss()
@@ -157,7 +158,7 @@ class DeepDTAModule(LightningModule):
         Examples:
             https://pytorch-lightning.readthedocs.io/en/latest/common/lightning_module.html#configure-optimizers
         """
-        optimizer = self.hparams.optimizer(params=self.parameters())
+        optimizer = self.hparams.optimizer(params=self.parameters(), lr=self.lr)
         if self.hparams.scheduler is not None:
             scheduler = self.hparams.scheduler(optimizer=optimizer)
             return {
