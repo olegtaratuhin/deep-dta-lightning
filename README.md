@@ -35,7 +35,7 @@ poetry install
 
 ## How to run
 
-Train model with default configuration (Davis dataset is by default)
+Train model with default configuration:
 
 ```bash
 # train on CPU
@@ -48,7 +48,7 @@ python src/train.py trainer=gpu
 python src/train.py trainer=mps
 ```
 
-To train with KIBA:
+By default, we use davis dataset. To train with KIBA:
 
 ```bash
 python src/train.py data=kiba
