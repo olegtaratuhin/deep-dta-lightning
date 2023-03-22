@@ -1,43 +1,45 @@
 from __future__ import annotations
 
 import json
-import math
 import pathlib
 import shutil
-from typing import Literal, NewType
+from typing import Callable, NewType
 
 import numpy as np
 import numpy.typing as npt
 import torch.utils.data
 
-from src.data.components.ligands import smiles_encoding_table
-from src.data.components.proteins import protein_encoding_table
-
 __all__ = [
     "AffinityDataset",
+    "SMILES_ALPHABET",
+    "PROTEIN_ALPHABET",
 ]
 
 
 AffinityMatrix = NewType("AffinityMatrix", npt.NDArray[float])
+AffinityNormalizer = Callable[[AffinityMatrix], AffinityMatrix]
 LigandEmbedding = NewType("LigandEmbedding", npt.NDArray[int])
 ProteinEmbedding = NewType("ProteinEmbedding", npt.NDArray[int])
-EncodingModes = Literal["one-hot", "label"]
+SMILES_ALPHABET = "#%()+-./0123456789=@ABCDEFGHIKLMNOPRSTUVWYZ[\\]abcdefghilmnorstuy"
+PROTEIN_ALPHABET = "ABCDEFGHIKLMNOPQRSTUVWXYZ"
 
 
 class LabelEncoder:
-    def __init__(self, table: dict[str, int], n_dim: int | None = None):
-        self._table = table
-        self._n_dim = n_dim if n_dim is not None else len(table)
+    def __init__(
+        self,
+        alphabet: str,
+        n_dim: int,
+        missing_value: int | None = None,
+    ):
+        self._table = dict(zip(sorted(alphabet), range(len(alphabet))))
+        self._n_dim = n_dim
+        self._missing_value = len(self._table) + 1 if missing_value is None else missing_value
 
     def transform(self, data: str) -> npt.NDArray[int]:
         encoded = np.zeros(self._n_dim)
         for i, ch in enumerate(data[: self._n_dim]):
-            encoded[i] = self._table[ch]
+            encoded[i] = self._table.get(ch, -1)
         return encoded
-
-
-def _normalize(vector: npt.NDArray[float], base: float = math.e) -> npt.NDArray[float]:
-    return -np.log10(vector / (np.power(base, 9)))
 
 
 def _extract_interactions(
@@ -66,11 +68,22 @@ def _load_proteins(path: pathlib.Path, encoder: LabelEncoder) -> npt.NDArray[int
     return np.array([encoder.transform(x) for x in proteins.values()], dtype=int)
 
 
-def _load_affinity(path: pathlib.Path, normalize_value: float | None = None) -> AffinityMatrix:
-    affinity_scores = np.load(str(path / "affinity.npy"))
-    if normalize_value is not None:
-        affinity_scores = _normalize(affinity_scores, base=normalize_value)
-    return affinity_scores.astype(dtype=np.dtype("float32"))  # type: ignore
+def _load_affinity(
+    path: pathlib.Path,
+    log_scale: bool = False,
+    clip_min_value: float | None = None,
+    clip_max_value: float | None = None,
+    scaler: AffinityNormalizer | None = None,
+) -> AffinityMatrix:
+    affinity_scores = np.load(str(path / "affinity.npy")).astype(dtype="float32")
+    if log_scale:
+        affinity_scores = -np.log10(affinity_scores / (np.power(10, 9)))
+    if clip_min_value is not None or clip_max_value is not None:
+        affinity_scores = affinity_scores.clip(min=clip_min_value, max=clip_max_value)
+    if scaler is not None:
+        # attention: this normalizer is applied to whole dataset, this might result in data leak
+        affinity_scores = scaler(affinity_scores)
+    return affinity_scores
 
 
 class AffinityDataset(torch.utils.data.TensorDataset):
@@ -79,19 +92,22 @@ class AffinityDataset(torch.utils.data.TensorDataset):
     def __init__(
         self,
         path: pathlib.Path | None = None,
-        normalize_value: float | None = None,
         ligand_dim: int = 64,
         protein_dim: int = 512,
+        log_scale: bool = False,
+        clip_max_value: float | None = None,
+        clip_min_value: float | None = None,
+        scaler: AffinityNormalizer | None = None,
     ):
-        self._ligand_encoder = LabelEncoder(table=smiles_encoding_table(), n_dim=ligand_dim)
-        self._protein_encoder = LabelEncoder(table=protein_encoding_table(), n_dim=protein_dim)
+        self._ligand_encoder = LabelEncoder(alphabet=SMILES_ALPHABET, n_dim=ligand_dim)
+        self._protein_encoder = LabelEncoder(alphabet=PROTEIN_ALPHABET, n_dim=protein_dim)
 
         if path is None:
             raise ValueError("Expecting a non-None path to load interaction from")
         proteins, ligands, affinity = _extract_interactions(
             proteins=_load_proteins(path, self._protein_encoder),
             ligands=_load_ligands(path, self._ligand_encoder),
-            affinity=_load_affinity(path, normalize_value),
+            affinity=_load_affinity(path, log_scale, clip_min_value, clip_max_value, scaler),
         )
         super().__init__(proteins, ligands, affinity)
 
