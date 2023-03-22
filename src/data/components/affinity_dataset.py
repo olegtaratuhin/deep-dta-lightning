@@ -98,9 +98,14 @@ class AffinityDataset(torch.utils.data.TensorDataset):
         clip_max_value: float | None = None,
         clip_min_value: float | None = None,
         scaler: AffinityNormalizer | None = None,
+        threshold: float | None = None,
     ):
         self._ligand_encoder = LabelEncoder(alphabet=SMILES_ALPHABET, n_dim=ligand_dim)
         self._protein_encoder = LabelEncoder(alphabet=PROTEIN_ALPHABET, n_dim=protein_dim)
+
+        # binding affinity datasets often benchmark using AUPR, this threshold is dataset-specific
+        # and will be accessed by the model's configuration
+        self._threshold = threshold
 
         if path is None:
             raise ValueError("Expecting a non-None path to load interaction from")

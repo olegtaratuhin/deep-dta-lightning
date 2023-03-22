@@ -4,14 +4,9 @@ train_val_test_split: [0.8, 0.1, 0.1]
 dataset:
   _target_: src.data.components.affinity_dataset.AffinityDataset
   _partial_: true
-  clip_max_value: 20.0
+  clip_max_value: 100.0
   ligand_dim: 100
   protein_dim: 1000
-  scaler:
-    _target_: sklearn.preprocessing.minmax_scale
-    _partial_: true
-    feature_range:
-      _target_: builtins.tuple
-      _args_: [[0.0, 1.0]]
+  threshold: 12.1
 batch_size: 256
 num_workers: 8

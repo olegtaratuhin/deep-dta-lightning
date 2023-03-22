@@ -4,6 +4,7 @@ from typing import Any, Iterable, Protocol, TypedDict
 
 import torch
 import torch.nn as nn
+import torchmetrics
 from lightning.pytorch import LightningModule
 from torchmetrics import MaxMetric, MeanMetric
 
@@ -29,6 +30,14 @@ class SchedulerFactory(Protocol):
 DTABatch = tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 
 
+def _binarize(
+    threshold: float,
+    preds: torch.Tensor,
+    targets: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    return torch.sigmoid(preds - threshold), ((targets - threshold) > 0).int()
+
+
 class DeepDTAModule(LightningModule):
     """DeepDTA model for affinity prediction.
 
@@ -50,6 +59,7 @@ class DeepDTAModule(LightningModule):
         optimizer: OptimzerFactory,
         scheduler: SchedulerFactory | None = None,
         lr: float = 1e-3,
+        classification_threshold: float | None = None,
     ):
         super().__init__()
 
@@ -59,15 +69,37 @@ class DeepDTAModule(LightningModule):
         self.save_hyperparameters(logger=False, ignore=["model"])
 
         self.model = model
+
+        # we need to have this explicitly to be able to use auto-lr-finder callback
         self.lr = lr
+
+        # optional threshold to calculate classification metrics
+        self._threshold = classification_threshold
 
         # loss function
         self.criterion = nn.MSELoss()
 
-        # metric objects for calculating and averaging metric across batches
-        self.train_metric = metrics.CIndex()
-        self.val_metric = metrics.CIndex()
-        self.test_metric = metrics.CIndex()
+        # concordance index
+        self.train_cindex = metrics.CIndex()
+        self.val_cindex = metrics.CIndex()
+        self.test_cindex = metrics.CIndex()
+
+        # R2
+        self.train_r2 = torchmetrics.R2Score()
+        self.val_r2 = torchmetrics.R2Score()
+        self.test_r2 = torchmetrics.R2Score()
+
+        # MAPE
+        self.train_mape = torchmetrics.MeanAbsolutePercentageError()
+        self.val_mape = torchmetrics.MeanAbsolutePercentageError()
+        self.test_mape = torchmetrics.MeanAbsolutePercentageError()
+
+        # AUPRC
+        # although we do regression many papers have this metric
+        # for this we need a dataset-specific threshold
+        self.train_auprc = torchmetrics.AveragePrecision("binary")
+        self.val_auprc = torchmetrics.AveragePrecision("binary")
+        self.test_auprc = torchmetrics.AveragePrecision("binary")
 
         # for averaging loss across batches
         self.train_loss = MeanMetric()
@@ -84,7 +116,10 @@ class DeepDTAModule(LightningModule):
         # by default lightning executes validation step sanity checks before training starts,
         # so it's worth to make sure validation metrics don't store results from these checks
         self.val_loss.reset()
-        self.val_metric.reset()
+        self.val_cindex.reset()
+        self.val_r2.reset()
+        self.val_mape.reset()
+        self.val_auprc.reset()
         self.val_metric_best.reset()
 
     def model_step(
@@ -104,10 +139,23 @@ class DeepDTAModule(LightningModule):
         loss, preds, targets = self.model_step(batch)
 
         # update and log metrics
-        self.train_loss(loss)
-        self.train_metric.update(preds.detach(), targets.detach())
-        self.log("train/loss", self.train_loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("train/cindex", self.train_metric, on_step=False, on_epoch=True, prog_bar=True)
+        self.train_loss(loss.detach())
+        self.log("train/loss", self.train_loss, on_step=True, on_epoch=True, prog_bar=True)
+
+        preds_view, targets_view = preds.detach(), targets.detach()
+
+        self.train_cindex.update(preds_view, targets_view)
+        self.log("train/cindex", self.train_cindex, on_step=True, on_epoch=True, prog_bar=True)
+
+        self.train_r2.update(preds_view, targets_view)
+        self.log("train/r2", self.train_r2, on_step=True, on_epoch=True, prog_bar=True)
+
+        self.train_mape.update(preds_view, targets_view)
+        self.log("train/mape", self.train_mape, on_step=True, on_epoch=True, prog_bar=True)
+
+        if self._threshold is not None:
+            self.train_auprc.update(*_binarize(self._threshold, preds_view, targets_view))
+            self.log("train/auprc", self.train_auprc, on_step=True, on_epoch=True, prog_bar=True)
 
         # we can return here dict with any tensors
         # and then read it in some callback or in `training_epoch_end()` below
@@ -123,14 +171,27 @@ class DeepDTAModule(LightningModule):
 
         # update and log metrics
         self.val_loss(loss)
-        self.val_metric.update(preds.detach(), targets.detach())
-        self.log("val/loss", self.val_loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("val/cindex", self.val_metric, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("val/loss", self.val_loss, on_step=True, on_epoch=True, prog_bar=True)
+
+        preds_view, targets_view = preds.detach(), targets.detach()
+
+        self.val_cindex.update(preds_view, targets_view)
+        self.log("val/cindex", self.val_cindex, on_step=True, on_epoch=True, prog_bar=True)
+
+        self.val_r2.update(preds_view, targets_view)
+        self.log("val/r2", self.val_r2, on_step=True, on_epoch=True, prog_bar=True)
+
+        self.val_mape.update(preds_view, targets_view)
+        self.log("val/mape", self.val_mape, on_step=True, on_epoch=True, prog_bar=True)
+
+        if self._threshold is not None:
+            self.val_auprc.update(*_binarize(self._threshold, preds_view, targets_view))
+            self.log("val/auprc", self.val_auprc, on_step=True, on_epoch=True, prog_bar=True)
 
         return {"loss": loss, "preds": preds, "targets": targets}
 
     def on_validation_epoch_end(self) -> None:
-        cindex = self.val_metric.compute()  # get current val cindex
+        cindex = self.val_cindex.compute()  # get current val cindex
         self.val_metric_best(cindex)  # update best so far val cindex
         # log `val_metric_best` as a value through `.compute()` method, instead of as a metric object
         # otherwise metric would be reset by lightning after each epoch
@@ -140,10 +201,23 @@ class DeepDTAModule(LightningModule):
         loss, preds, targets = self.model_step(batch)
 
         # update and log metrics
-        self.test_loss(loss)
-        self.test_metric.update(preds.detach(), targets.detach())
+        self.test_loss(loss.detach())
         self.log("test/loss", self.test_loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("test/cindex", self.test_metric, on_step=False, on_epoch=True, prog_bar=True)
+
+        preds_view, targets_view = preds.detach(), targets.detach()
+
+        self.test_cindex.update(preds_view, targets_view)
+        self.log("test/cindex", self.test_cindex, on_step=False, on_epoch=True, prog_bar=True)
+
+        self.test_r2.update(preds_view, targets_view)
+        self.log("test/r2", self.test_r2, on_step=False, on_epoch=True, prog_bar=True)
+
+        self.test_mape.update(preds_view, targets_view)
+        self.log("test/mape", self.test_mape, on_step=False, on_epoch=True, prog_bar=True)
+
+        if self._threshold is not None:
+            self.test_auprc.update(*_binarize(self._threshold, preds_view, targets_view))
+            self.log("test/auprc", self.test_auprc, on_step=True, on_epoch=True, prog_bar=True)
 
         return {"loss": loss, "preds": preds, "targets": targets}
 

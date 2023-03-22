@@ -35,3 +35,5 @@ model:
     output_init:
       _target_: torch.nn.init.xavier_normal_
       _partial_: true
+
+classification_threshold: ${oc.select:data.dataset.threshold,null}
