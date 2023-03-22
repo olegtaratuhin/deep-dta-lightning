@@ -75,7 +75,7 @@ def _load_affinity(
     clip_max_value: float | None = None,
     scaler: AffinityNormalizer | None = None,
 ) -> AffinityMatrix:
-    affinity_scores = np.load(str(path / "affinity.npy")).astype(dtype="float32")
+    affinity_scores = np.load(str(path / "affinity.npy"))
     if log_scale:
         affinity_scores = -np.log10(affinity_scores / (np.power(10, 9)))
     if clip_min_value is not None or clip_max_value is not None:
@@ -83,7 +83,7 @@ def _load_affinity(
     if scaler is not None:
         # attention: this normalizer is applied to whole dataset, this might result in data leak
         affinity_scores = scaler(affinity_scores)
-    return affinity_scores
+    return affinity_scores.astype(dtype="float32")  # type: ignore
 
 
 class AffinityDataset(torch.utils.data.TensorDataset):
