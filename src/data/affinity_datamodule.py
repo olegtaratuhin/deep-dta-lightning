@@ -126,10 +126,3 @@ class AffinityDataModule(LightningDataModule):
     def load_state_dict(self, state_dict: dict[str, Any]) -> None:
         """Things to do when loading checkpoint."""
         pass
-
-
-if __name__ == "__main__":
-    data_module = AffinityDataModule(
-        "/Users/oleg.taratukhin/Code/quantori/deep-dta-lightning/data/davis"
-    )
-    data_module.setup()

@@ -85,14 +85,3 @@ class LazyDenseNet(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.net.forward(x)
-
-
-if __name__ == "__main__":
-    # noinspection PyTypeChecker
-    net = LazyDenseNet(
-        inner_sizes=[1024, 1024, 512],
-        output_size=1,
-        dropout=0.1,
-        output_init=nn.init.xavier_normal_,
-    )
-    print(net)
