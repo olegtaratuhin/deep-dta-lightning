@@ -47,7 +47,7 @@ def _extract_interactions(
     ligands: npt.ArrayLike[LigandEmbedding],
     affinity: AffinityMatrix,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    mask = ~np.isnan(affinity)
+    mask = ~(np.isnan(affinity) | np.isinf(affinity))
     ligand_idx, protein_idx = np.where(mask)
     return (
         torch.from_numpy(np.take_along_axis(proteins, protein_idx.reshape(-1, 1), axis=0)),
@@ -71,15 +71,11 @@ def _load_proteins(path: pathlib.Path, encoder: LabelEncoder) -> npt.NDArray[int
 def _load_affinity(
     path: pathlib.Path,
     log_scale: bool = False,
-    clip_min_value: float | None = None,
-    clip_max_value: float | None = None,
     scaler: AffinityNormalizer | None = None,
 ) -> AffinityMatrix:
     affinity_scores = np.load(str(path / "affinity.npy"))
     if log_scale:
         affinity_scores = -np.log10(affinity_scores / (np.power(10, 9)))
-    if clip_min_value is not None or clip_max_value is not None:
-        affinity_scores = affinity_scores.clip(min=clip_min_value, max=clip_max_value)
     if scaler is not None:
         # attention: this normalizer is applied to whole dataset, this might result in data leak
         affinity_scores = scaler(affinity_scores)
@@ -95,8 +91,6 @@ class AffinityDataset(torch.utils.data.TensorDataset):
         ligand_dim: int = 64,
         protein_dim: int = 512,
         log_scale: bool = False,
-        clip_max_value: float | None = None,
-        clip_min_value: float | None = None,
         scaler: AffinityNormalizer | None = None,
         threshold: float | None = None,
     ):
@@ -112,7 +106,7 @@ class AffinityDataset(torch.utils.data.TensorDataset):
         proteins, ligands, affinity = _extract_interactions(
             proteins=_load_proteins(path, self._protein_encoder),
             ligands=_load_ligands(path, self._ligand_encoder),
-            affinity=_load_affinity(path, log_scale, clip_min_value, clip_max_value, scaler),
+            affinity=_load_affinity(path, log_scale, scaler),
         )
         super().__init__(proteins, ligands, affinity)
 

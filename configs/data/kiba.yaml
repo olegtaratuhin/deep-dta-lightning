@@ -1,10 +1,9 @@
 _target_: src.data.affinity_datamodule.AffinityDataModule
 path: ${paths.data_dir}kiba
-train_val_test_split: [0.8, 0.1, 0.1]
+train_val_test_split: [0.70, 0.15, 0.15]
 dataset:
   _target_: src.data.components.affinity_dataset.AffinityDataset
   _partial_: true
-  clip_max_value: 100.0
   ligand_dim: 100
   protein_dim: 1000
   threshold: 12.1
