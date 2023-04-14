@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import pathlib
 from typing import Any
 
 import hydra
 import pyrootutils
+from lightning.pytorch import LightningDataModule, LightningModule, Trainer
+from lightning.pytorch.loggers import Logger
 from omegaconf import DictConfig
-from pytorch_lightning import LightningDataModule, LightningModule, Trainer
-from pytorch_lightning.loggers import Logger
+
+from src.models import collect_predictions
 
 pyrootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 # ------------------------------------------------------------------------------------ #
@@ -46,6 +49,7 @@ def evaluate(cfg: DictConfig) -> tuple[dict[str, Any], dict[str, Any]]:
     """
 
     assert cfg.ckpt_path
+    assert cfg.data.path
 
     log.info(f"Instantiating datamodule <{cfg.data._target_}>")
     datamodule: LightningDataModule = hydra.utils.instantiate(cfg.data)
@@ -59,27 +63,19 @@ def evaluate(cfg: DictConfig) -> tuple[dict[str, Any], dict[str, Any]]:
     log.info(f"Instantiating trainer <{cfg.trainer._target_}>")
     trainer: Trainer = hydra.utils.instantiate(cfg.trainer, logger=logger)
 
-    object_dict = {
-        "cfg": cfg,
-        "datamodule": datamodule,
-        "model": model,
-        "logger": logger,
-        "trainer": trainer,
-    }
+    log.info("Getting predictions!")
 
-    if logger:
-        log.info("Logging hyperparameters!")
-        utils.log_hyperparameters(object_dict)
-
-    log.info("Starting testing!")
-    trainer.test(model=model, datamodule=datamodule, ckpt_path=cfg.ckpt_path)
-
-    # for predictions use trainer.predict(...)
-    # predictions = trainer.predict(model=model, dataloaders=dataloaders, ckpt_path=cfg.ckpt_path)
+    results = trainer.predict(
+        model=model,
+        datamodule=datamodule,
+        ckpt_path=cfg.ckpt_path,
+    )
+    df = collect_predictions.prepare_result(results)
+    df.to_csv(pathlib.Path(cfg.paths.output_dir) / "results.csv")
 
     metric_dict = trainer.callback_metrics
 
-    return metric_dict, object_dict
+    return metric_dict, {}
 
 
 @hydra.main(version_base="1.3", config_path="../configs", config_name="eval.yaml")

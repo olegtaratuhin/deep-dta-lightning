@@ -109,7 +109,11 @@ class DeepDTAModule(LightningModule):
         # for tracking best so far validation metric
         self.val_metric_best = MaxMetric()
 
-    def forward(self, x_proteins: torch.Tensor, x_ligands: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        batch: tuple[torch.Tensor, torch.Tensor] | tuple[torch.Tensor, torch.Tensor],
+    ) -> torch.Tensor:
+        x_proteins, x_ligands, *_ = batch
         return self.model.forward(x_proteins=x_proteins, x_ligands=x_ligands)
 
     def on_train_start(self) -> None:

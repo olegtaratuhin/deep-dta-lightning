@@ -7,39 +7,19 @@ from typing import Callable, NewType
 
 import numpy as np
 import numpy.typing as npt
+import pandas as pd
 import torch.utils.data
+
+from src.data import encoders
 
 __all__ = [
     "AffinityDataset",
-    "SMILES_ALPHABET",
-    "PROTEIN_ALPHABET",
 ]
-
 
 AffinityMatrix = NewType("AffinityMatrix", npt.NDArray[float])
 AffinityNormalizer = Callable[[AffinityMatrix], AffinityMatrix]
 LigandEmbedding = NewType("LigandEmbedding", npt.NDArray[int])
 ProteinEmbedding = NewType("ProteinEmbedding", npt.NDArray[int])
-SMILES_ALPHABET = "#%()+-./0123456789=@ABCDEFGHIKLMNOPRSTUVWYZ[\\]abcdefghilmnorstuy"
-PROTEIN_ALPHABET = "ABCDEFGHIKLMNOPQRSTUVWXYZ"
-
-
-class LabelEncoder:
-    def __init__(
-        self,
-        alphabet: str,
-        n_dim: int,
-        missing_value: int | None = None,
-    ):
-        self._table = dict(zip(sorted(alphabet), range(len(alphabet))))
-        self._n_dim = n_dim
-        self._missing_value = len(self._table) + 1 if missing_value is None else missing_value
-
-    def transform(self, data: str) -> npt.NDArray[int]:
-        encoded = np.zeros(self._n_dim)
-        for i, ch in enumerate(data[: self._n_dim]):
-            encoded[i] = self._table.get(ch, -1)
-        return encoded
 
 
 def _extract_interactions(
@@ -56,13 +36,13 @@ def _extract_interactions(
     )
 
 
-def _load_ligands(path: pathlib.Path, encoder: LabelEncoder) -> npt.NDArray[int]:
+def _load_ligands(path: pathlib.Path, encoder: encoders.LabelEncoder) -> npt.NDArray[int]:
     with (path / "ligands.json").open("r") as ligands_file:
         ligands: dict[str, str] = json.load(ligands_file)
     return np.array([encoder.transform(x) for x in ligands.values()], dtype=int)
 
 
-def _load_proteins(path: pathlib.Path, encoder: LabelEncoder) -> npt.NDArray[int]:
+def _load_proteins(path: pathlib.Path, encoder: encoders.LabelEncoder) -> npt.NDArray[int]:
     with (path / "proteins.json").open("r") as proteins_file:
         proteins: dict[str, str] = json.load(proteins_file)
     return np.array([encoder.transform(x) for x in proteins.values()], dtype=int)
@@ -94,8 +74,14 @@ class AffinityDataset(torch.utils.data.TensorDataset):
         scaler: AffinityNormalizer | None = None,
         threshold: float | None = None,
     ):
-        self._ligand_encoder = LabelEncoder(alphabet=SMILES_ALPHABET, n_dim=ligand_dim)
-        self._protein_encoder = LabelEncoder(alphabet=PROTEIN_ALPHABET, n_dim=protein_dim)
+        self._ligand_encoder = encoders.LabelEncoder(
+            alphabet=encoders.SMILES_ALPHABET,
+            n_dim=ligand_dim,
+        )
+        self._protein_encoder = encoders.LabelEncoder(
+            alphabet=encoders.PROTEIN_ALPHABET,
+            n_dim=protein_dim,
+        )
 
         # binding affinity datasets often benchmark using AUPR, this threshold is dataset-specific
         # and will be accessed by the model's configuration
@@ -110,12 +96,6 @@ class AffinityDataset(torch.utils.data.TensorDataset):
         )
         super().__init__(proteins, ligands, affinity)
 
-    def encode_protein(self, protein: str) -> npt.NDArray[int]:
-        return self._protein_encoder.transform(data=protein)
-
-    def encode_ligand(self, ligand: str) -> npt.NDArray[int]:
-        return self._ligand_encoder.transform(data=ligand)
-
 
 def _convert_from_original_format(
     original_path: pathlib.Path,
@@ -126,3 +106,42 @@ def _convert_from_original_format(
     shutil.copyfile(original_path / "proteins.txt", converted_path / "proteins.json")
     affinity_scores = np.load(str(original_path / "Y"), encoding="latin1", allow_pickle=True)
     np.save(str(converted_path / "affinity.npy"), affinity_scores)
+
+
+class TabularAffinityDataset(torch.utils.data.TensorDataset):
+    """Affinity dataset between ligands and proteins in pd.DataFrame.
+
+    This class expects that the dataframe would have 3 columns:
+      - "Drug" - ligands in smiles format
+      - "Target" - proteins in canonical encoding
+      - "Y" - binding affinity between a drug and a target
+    """
+
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        ligand_dim: int = 64,
+        protein_dim: int = 512,
+        threshold: float | None = None,
+    ):
+        self._ligand_encoder = encoders.LabelEncoder(
+            alphabet=encoders.SMILES_ALPHABET,
+            n_dim=ligand_dim,
+        )
+        self._protein_encoder = encoders.LabelEncoder(
+            alphabet=encoders.PROTEIN_ALPHABET,
+            n_dim=protein_dim,
+        )
+
+        # binding affinity datasets often benchmark using AUPR, this threshold is dataset-specific
+        # and will be accessed by the model's configuration
+        self._threshold = threshold
+
+        encoded_proteins = df["Target"].apply(self._protein_encoder.transform)
+        proteins = torch.tensor(np.vstack(encoded_proteins), dtype=torch.int)
+
+        encoded_ligands = df["Drug"].apply(self._ligand_encoder.transform)
+        ligands = torch.tensor(np.vstack(encoded_ligands), dtype=torch.int)
+
+        affinity = torch.tensor(df[["Y"]].values, dtype=torch.float)
+        super().__init__(proteins, ligands, affinity)
